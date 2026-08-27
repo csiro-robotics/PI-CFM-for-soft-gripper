@@ -6,13 +6,18 @@ __pycache__/
 venv/
 
 # --- large assets: fetched separately, see README ---
-data/
-checkpoints/
+# ignore the CONTENTS, but keep each directory's README (the fetch instructions)
+data/*
+!data/README.md
+checkpoints/*
+!checkpoints/README.md
 runs/
 output/
 *.pt
 *.pth
 *.npz
+# ...except the small bundled boundary-condition file that pins the design space
+!evolution/generate/assets/*.npz
 
 # --- editor / os ---
 .vscode/
