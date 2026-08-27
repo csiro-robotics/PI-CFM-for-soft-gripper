@@ -57,7 +57,9 @@ def _resolve_ckpt(path):
     checkpoints/README.md for how to obtain or retrain them (training/)."""
     p = Path(path)
     if not p.is_absolute():
-        p = ROOT / p
+        # try it as given (relative to the CWD, which is what a --checkpoint flag
+        # means to a user) before falling back to repo-root-relative
+        p = p if p.exists() else ROOT / p
     if not p.exists():
         raise FileNotFoundError(
             f"PI-CFM checkpoint not found: {p}\n"
@@ -68,7 +70,10 @@ def _resolve_ckpt(path):
 
 def make_generator(checkpoint=DEFAULT_CKPT, bc_npz=DEFAULT_BC, device="cuda"):
     ckpt = _resolve_ckpt(checkpoint)
-    bc = bc_npz if Path(bc_npz).is_absolute() else str(ROOT / bc_npz)
+    bc = Path(bc_npz)
+    if not bc.is_absolute() and not bc.exists():
+        bc = ROOT / bc
+    bc = str(bc)
     gen = DesignGenerator(checkpoint_path=ckpt, bc_npz_path=bc, device=device)
     H, W = gen.base_cond.shape[-2:]
     return gen, H, W

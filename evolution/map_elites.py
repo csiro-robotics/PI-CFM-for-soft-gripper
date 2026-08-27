@@ -102,12 +102,13 @@ def build_parser():
     # --- physics ---
     p.add_argument("--gap-mm", type=float, default=None, help="two-finger-equivalent opening")
     p.add_argument("--object-r-mm", type=float, default=None)
+    p.add_argument("--object-y-mm", type=float, default=None,
+                   help="disc-centre height (mm); gallery_v3 used 83")
     p.add_argument("--pull-mm", type=float, default=None)
-    p.add_argument("--keep-islands", action="store_true",
-                   help="simulate material that is NOT attached to the socket. Off by "
-                        "default: this release has no repair step, so designs decode in "
-                        "pieces and a floating island would be credited for contact it "
-                        "cannot transmit")
+    p.add_argument("--drop-islands", action="store_true",
+                   help="simulate ONLY the piece of a design attached to the socket. Off "
+                        "by default: no repair step means the mask is simulated exactly "
+                        "as the model produced it")
     p.add_argument("--chunk", type=int, default=256,
                    help="designs per solver launch. Lower it if the GPU runs out of memory; "
                         "it changes throughput only, never the result")
@@ -138,8 +139,9 @@ def main(argv=None):
     cfg, cfg_info = evaluate.make_cfg(
         gap_mm=evaluate.GAP_MM if args.gap_mm is None else args.gap_mm,
         object_r_mm=evaluate.OBJECT_R_MM if args.object_r_mm is None else args.object_r_mm,
+        object_y_mm=evaluate.OBJECT_Y_MM if args.object_y_mm is None else args.object_y_mm,
         pull_mm=evaluate.PULL_MM if args.pull_mm is None else args.pull_mm,
-        drop_islands=not args.keep_islands)
+        drop_islands=args.drop_islands)
 
     ckpt = args.checkpoint or gnm.DEFAULT_CKPT
     gen, H, W = gnm.make_generator(checkpoint=ckpt, device=args.device)
@@ -159,8 +161,8 @@ def main(argv=None):
           f"+ {args.w_grasp}*({args.w_force}*force + {args.w_wrap}*wrap)")
     print(f"[me] physics E={cfg.young/1e6:.4f}MPa mu={cfg.obstacle_friction:.4f} "
           f"dt={evaluate.DT*1e3:g}ms close={evaluate.CLOSE_T}s pull={evaluate.PULL_T}s/"
-          f"{cfg.pull_distance*1e3:g}mm disc r={cfg.object_r*1e3:g}mm gap={cfg_info['gap_mm']:g}mm "
-          f"islands={'kept' if args.keep_islands else 'dropped'}")
+          f"{cfg.pull_distance*1e3:g}mm disc r={cfg.object_r*1e3:g}mm@y={cfg.object_y*1e3:g}mm gap={cfg_info['gap_mm']:g}mm "
+          f"islands={'dropped' if args.drop_islands else 'kept'}")
     print(f"[me] -> {run_dir}", flush=True)
     (run_dir / "config.json").write_text(json.dumps(
         dict(vars(args), D=D, H=H, W=W, noise_dim=noise_dim, axes=AXES, ranges=RANGES,

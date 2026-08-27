@@ -20,7 +20,8 @@ OPERATING POINT (pinned; do not drift from these without re-deriving f_ref):
                             at dt = 2 ms (that fit's own E was 1.0019 MPa, so the
                             contact/damping constants are carried over, not refitted)
     dt   2 ms               the rate the material was identified at
-    close 1.10 s, pull 3.03 s over 30 mm, disc r = 14 mm, finger gap 52 mm
+    close 1.10 s, pull 3.03 s over 30 mm
+    disc r = 14 mm at y = 83 mm, finger gap 52 mm
 
 The gap is the two-finger rig's finger-to-finger opening. One finger sees half of
 it: the object-facing surface sits gap/2 = 26 mm from the disc centre, i.e. 12 mm
@@ -59,6 +60,8 @@ PULL_T = 3.03        # pull phase (s)
 PULL_MM = 30.0       # lift distance (mm)
 GAP_MM = 52.0        # two-finger equivalent opening (mm); one finger sees gap/2
 OBJECT_R_MM = 14.0   # rigid disc radius (mm)
+OBJECT_Y_MM = 83.0   # disc-centre height (mm). gallery_v3's rig value, NOT SimCfg's
+                     # 80 mm default -- 3 mm changes where the finger meets the disc
 W_FORCE, W_WRAP = 0.2, 0.8
 ITER_MAX = 150       # PNCG iterations per implicit step
 
@@ -72,8 +75,8 @@ def object_x_from_gap(cfg, gap_mm=GAP_MM):
     return cfg.center_x - 0.5 * cfg.finger_width - 0.5 * gap_mm * 1e-3
 
 
-def make_cfg(gap_mm=GAP_MM, object_r_mm=OBJECT_R_MM, pull_mm=PULL_MM,
-             drop_islands=True, material=None):
+def make_cfg(gap_mm=GAP_MM, object_r_mm=OBJECT_R_MM, object_y_mm=OBJECT_Y_MM,
+             pull_mm=PULL_MM, drop_islands=False, material=None):
     """SimCfg pinned to the gallery_v3 operating point. Returns (cfg, info).
 
     scale_for_material rescales dt / damping / stiffnesses / caps / f_ref to the
@@ -86,10 +89,12 @@ def make_cfg(gap_mm=GAP_MM, object_r_mm=OBJECT_R_MM, pull_mm=PULL_MM,
     cfg.ipc_d_hat = float(m["d_hat"])
     cfg.obstacle_friction_epsv = float(m["epsv"])
     cfg.object_r = object_r_mm * 1e-3
+    cfg.object_y = object_y_mm * 1e-3
     cfg.object_x = object_x_from_gap(cfg, gap_mm)
     cfg.pull_distance = pull_mm * 1e-3
     cfg.drop_islands = bool(drop_islands)
-    info = dict(info, gap_mm=gap_mm, object_r_mm=object_r_mm, pull_mm=pull_mm,
+    info = dict(info, gap_mm=gap_mm, object_r_mm=object_r_mm, object_y_mm=object_y_mm,
+                pull_mm=pull_mm,
                 dt_ms=DT * 1e3, close_s=CLOSE_T, pull_s=PULL_T, **m)
     return cfg, info
 
@@ -141,11 +146,14 @@ def evaluate_masks(masks, cfg=None, device="cuda", dt=DT, close_t=CLOSE_T,
     QD population is one solver launch. Each dict carries the raw sim metrics, the
     four MAP-Elites descriptors and the composite score.
 
-    A design is screened out BEFORE the solver, and returned invalid with score 0, if
-    it has no material left once cfg.drop_islands has removed the pieces that are not
-    bolted to the socket, or if it fails the anchor guard (no real material under the
-    socket blocks, so it hangs off the forced mounting tongue by a hairline). Without
-    the repair step both are common, and both would otherwise mesh and "succeed".
+    VALIDITY IS THE SOLVER'S OWN RULE, unchanged from the research pipeline:
+
+        valid = pull_off and arc finite, ncon > 0, arc > 0,
+                buckle_J_min <= det(F) <= J_max_thr for every element
+
+    so a design that never reaches the object is simply invalid with score 0. That is
+    the normal state early in a search and needs no extra screening. The only design
+    NOT handed to the solver is one with no material at all, which cannot be meshed.
     """
     from pncg2d_solver import implicit_simulate_and_evaluate       # noqa: E402
 
@@ -154,9 +162,8 @@ def evaluate_masks(masks, cfg=None, device="cuda", dt=DT, close_t=CLOSE_T,
     masks = [np.asarray(m).astype(np.uint8) for m in masks]
     H, W = masks[0].shape
 
-    eff = [effective_mask(m, cfg) for m in masks]
-    live = [i for i, m in enumerate(masks) if _meshable(m, eff[i], cfg)]
-    out = [_dead(eff[i]) for i in range(len(masks))]
+    live = [i for i, m in enumerate(masks) if m.any()]     # empty masks cannot be meshed
+    out = [_dead(masks[i]) for i in range(len(masks))]
     if not live:
         return out
 
@@ -167,8 +174,8 @@ def evaluate_masks(masks, cfg=None, device="cuda", dt=DT, close_t=CLOSE_T,
 
     for j, i in enumerate(live):
         m = dict(mets[j])
-        m.update(descriptors(eff[i]))
-        m["effective_mask"] = eff[i]
+        m.update(descriptors(masks[i]))
+        m["effective_mask"] = masks[i]
         m["score"] = composite_score(m, cfg, w_force, w_wrap)
         m["force_term"] = w_force * math.tanh(max(m["pull_off"], 0.0) / cfg.f_ref) \
             if m["valid"] and math.isfinite(m["pull_off"]) else 0.0
@@ -177,30 +184,11 @@ def evaluate_masks(masks, cfg=None, device="cuda", dt=DT, close_t=CLOSE_T,
     return out
 
 
-def _meshable(mask, eff, cfg):
-    """Can this design be simulated as a finger at all?
-
-    (1) something must survive socketing -- non-empty, and with drop_islands on, some
-        of it must reach the socket; and
-    (2) it must pass the anchor guard: real material under the socket blocks, plus a
-        continuous load path from the anchor band down to the contact region that
-        survives a 1 px erosion. Applied to the RAW mask, so the mounting tongue that
-        socketing forces in cannot be what satisfies the guard."""
-    from finger import socket_block_cols, anchor_valid              # noqa: E402
-    if not eff.any():
-        return False
-    if getattr(cfg, "anchor_guard", True) and not anchor_valid(
-            mask, socket_block_cols(cfg, mask.shape[1]),
-            cfg.anchor_rows, cfg.anchor_min_fill):
-        return False
-    return True
-
-
-def _dead(eff):
-    """Metric dict for a design that cannot be simulated at all."""
+def _dead(mask):
+    """Metric dict for an empty design, which has no mesh to simulate."""
     d = dict(valid=False, pull_off=0.0, arc=0.0, jmin=float("nan"), jmax=float("nan"),
              ncon=0, mean_disp=0.0, score=0.0, force_term=0.0, wrap_term=0.0,
-             effective_mask=eff)
-    d.update(descriptors(eff))
+             effective_mask=mask)
+    d.update(descriptors(mask))
     d["mat"] = d["material_fraction"]
     return d
