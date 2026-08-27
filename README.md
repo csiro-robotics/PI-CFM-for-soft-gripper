@@ -113,8 +113,19 @@ paper's gallery:
 | object | rigid disc, r = 14 mm |
 | opening | 52 mm two-finger equivalent (one finger sees 26 mm to the disc centre) |
 
-Everything is pinned in [`evolution/evaluate.py`](evolution/evaluate.py); a genome
-decodes to the same design on any GPU, so a run is reproducible from its seeds.
+Everything is pinned in [`evolution/evaluate.py`](evolution/evaluate.py).
+
+**What is and is not reproducible.** A genome decodes to the *same design* on any
+GPU: `genome -> mask` is a pure function of `(genome, x0_seed)`, verified bit-exact
+(re-decoding an archive reproduces every descriptor to 0.00e+00). The *score* is
+not bit-exact. The solver accumulates per-node `grad`/`diagH` and the disc reaction
+`Fdisc` with float32 atomics, whose ordering varies between GPU launches; the
+per-env reductions are float64, so envs stay isolated, but the per-node sums are
+not. Re-simulating the same design gives a spread of about 0.5% in the composite
+score (measured: 6.8e-4 absolute on a score of 0.142, run to run). Batch
+composition is *not* the cause -- rerunning an identical batch varies by as much as
+changing it. This is far below the differences the search resolves, but it does
+mean a re-simulated archive will not match its stored scores exactly.
 
 **No repair step.** The research pipeline stitched broken ribs with an NV-loop
 repair before simulating. This release does not: a design is exactly what the

@@ -23,6 +23,12 @@ OPERATING POINT (pinned; do not drift from these without re-deriving f_ref):
     close 1.10 s, pull 3.03 s over 30 mm
     disc r = 14 mm at y = 83 mm, finger gap 52 mm
 
+DETERMINISM: mask generation is exact, the simulation is not. Per-node `grad`/
+`diagH` and the disc reaction are accumulated with float32 atomics whose ordering
+varies between GPU launches (the per-env reductions ARE float64, so envs stay
+isolated). Re-simulating one design spreads the composite score by ~0.5%. Do not
+assert exact equality against a stored score.
+
 The gap is the two-finger rig's finger-to-finger opening. One finger sees half of
 it: the object-facing surface sits gap/2 = 26 mm from the disc centre, i.e. 12 mm
 of clearance to a 14 mm disc. `object_x_from_gap` does that conversion, so a gap
