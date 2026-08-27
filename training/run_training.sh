@@ -31,6 +31,10 @@ DEVICE="${DEVICE:-cuda}"
 ENC_EPOCHS="${ENC_EPOCHS:-150}"
 ENC_BATCH="${ENC_BATCH:-32}"
 DIT_BATCH="${DIT_BATCH:-32}"
+# Stage 2 runs for total_steps from the config (200k). Override to sanity-check the
+# pipeline end to end in minutes before committing a GPU to the full run:
+#   DIT_STEPS=50 ./run_training.sh dit
+DIT_STEPS="${DIT_STEPS:-}"
 
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"
@@ -68,12 +72,15 @@ run_dit() {
   echo " STAGE 2/2  PI-CFM DiT  (encoder: ${enc})  ->  ${OUT_DIR}"
   echo "=============================================================="
   mkdir -p "${OUT_DIR}"
+  local extra=()
+  [ -n "${DIT_STEPS}" ] && extra+=(--total_steps "${DIT_STEPS}")
   python train_picfm_dit.py \
       --config "${CONFIG}" \
       --data_dirs "${DATA_DIRS[@]}" \
       --pretrained_encoder "${enc}" \
       --batch_size "${DIT_BATCH}" \
-      --output_dir "${OUT_DIR}"
+      --output_dir "${OUT_DIR}" \
+      "${extra[@]}"
 }
 
 case "${stage}" in
