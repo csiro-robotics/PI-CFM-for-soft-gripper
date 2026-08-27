@@ -1,0 +1,83 @@
+# =============================================================================
+# PICFM Training — Lumina-DiT-S/4 + SpatialStyleEncoder v2
+# =============================================================================
+# Architecture:
+#   DiT: Lumina-T2I Transformer (RMSNorm, SwiGLU, RoPE, QK-Norm, tanh-gated cross-attn)
+#   Encoder: SpatialStyleEncoder v2 (BC CNN + DS spatial blend + fusion)
+#   Conditioning: context_tokens → cross-attention + mean-pool → adaLN
+#   CFG: learned null tokens
+#
+# Usage:
+#   python train_picfm_DiT.py --config configs/train_dit.yaml
+
+# ---- Data -------------------------------------------------------------------
+data:
+  data_dir: data/mechanism_dataset
+  data_dirs:
+    - data/mechanism_dataset:topopt
+    - data/finray_dataset:finray
+    - data/graph_dataset:graph
+  max_samples: null
+
+# ---- Model (DiT-S/4 + SpatialStyleEncoder) ---------------------------------
+model:
+  hidden_dim: 384
+  depth: 12
+  num_heads: 6
+  patch_size: 4
+  mlp_ratio: 4.0
+  num_ds: 4
+  bc_channels: 6
+  ds_channel_offset: 6
+
+# ---- Flow Matching ----------------------------------------------------------
+flow_matching:
+  sigma: 0.
+  type: otcfm
+  timestep_sampling: lognormal
+
+# ---- Physics Loss -----------------------------------------------------------
+physics:
+  lambda_physics: 1.0
+  physics_start_iter: 500
+  physics_ramp_iters: 10000
+  physics_min_t: 0.5
+  physics_every: 1
+
+  w_mechanism: 1.0
+  w_binary: 1.0
+
+  penal: 5.0
+  rmin: 0.5
+  E_min: 1.0e-4
+
+# ---- Training ---------------------------------------------------------------
+training:
+  batch_size: 128
+  lr: 1.0e-4
+  grad_clip: 1.0
+  total_steps: 200000
+  warmup: 2000
+  ema_decay: 0.9999
+  ema_start: 1000
+  cond_drop_prob: 0.1
+  cfg_scale: 3.0
+
+  pretrained_encoder: trained_models/design_encoder/encoder_best.pt
+  freeze_encoder: true
+  encoder_lr_scale: 0.1
+
+# ---- Logging / Saving -------------------------------------------------------
+logging:
+  log_freq: 20
+  eval_freq: 500
+  sample_freq: 5000
+  save_freq: 10000
+  n_ode_steps: 100
+  n_sample_vis: 4
+
+output:
+  output_dir: trained_models/picfm
+  run_name: run_dit_v2
+  num_workers: 4
+  wandb: false

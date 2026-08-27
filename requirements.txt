@@ -1,0 +1,29 @@
+# PI-CFM for soft grippers — runtime dependencies
+# Tested with Python 3.12, CUDA 12.4, NVIDIA RTX A5000 / H100
+#
+# Install PyTorch first, matching your CUDA version:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+
+# --- core ---
+torch>=2.7.0
+torchvision>=0.22.0
+numpy>=2.0
+scipy>=1.14
+
+# --- training: flow matching (training/) ---
+torchcfm>=1.0.7
+POT>=0.9.5                 # optimal transport, used by OT-CFM
+torchdiffeq>=0.2.5
+einops>=0.8.0
+PyYAML>=6.0
+tqdm>=4.60
+
+# --- evolution: FEM + QD (evolution/) ---
+warp-lang>=1.0.0           # NVIDIA Warp — the implicit PNCG-IPC solver
+ribs>=0.7.0                # pyribs: CVT archive + LM-MA-ES emitters
+scikit-image>=0.24         # skeletonise, for the branch-density descriptor
+scikit-learn>=1.5          # CVT centroids
+
+# --- figures / IO ---
+matplotlib>=3.9
+imageio>=2.9

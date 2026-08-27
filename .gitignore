@@ -1,0 +1,20 @@
+# --- python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# --- large assets: fetched separately, see README ---
+data/
+checkpoints/
+runs/
+output/
+*.pt
+*.pth
+*.npz
+
+# --- editor / os ---
+.vscode/
+.idea/
+.DS_Store
