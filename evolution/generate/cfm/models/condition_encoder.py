@@ -1,5 +1,5 @@
 """
-Spatial Style Encoder v2 (CFM-sim self-contained copy).
+Spatial Style Encoder v2 (self-contained copy).
 
 Spatially-varying design-space conditioning with soft DS weight maps.
 

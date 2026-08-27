@@ -69,6 +69,11 @@ class SimCfg:
     anchor_rows = 6             # top finger rows (socket side) that must be loaded
     anchor_min_fill = 0.20      # min material fraction in that band, under the blocks
     anchor_guard = True         # set False to disable (legacy behaviour)
+    # No repair step in this release, so a design can decode into several pieces.
+    # True -> simulate only the piece attached to the socket (finger.keep_socket_
+    # component; removal only, never adds material). False -> simulate the raw mask,
+    # floating islands included.
+    drop_islands = True
     # phase time = n_steps*dt, shrinking with stiffness so n_steps stays fixed
     n_steps = 20000
     pull_n_steps = 20000

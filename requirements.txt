@@ -20,10 +20,20 @@ tqdm>=4.60
 
 # --- evolution: FEM + QD (evolution/) ---
 warp-lang>=1.0.0           # NVIDIA Warp — the implicit PNCG-IPC solver
-ribs>=0.7.0                # pyribs: CVT archive + LM-MA-ES emitters
+ribs>=0.11.0               # pyribs: CVT archive + LM-MA-ES emitters
+                           # (0.11 changed CVTArchive to require `centroids=`)
 scikit-image>=0.24         # skeletonise, for the branch-density descriptor
 scikit-learn>=1.5          # CVT centroids
 
 # --- figures / IO ---
 matplotlib>=3.9
 imageio>=2.9
+
+# --- optional ---
+# opencv: training/flows/residual_physics.py uses it for the floating-island check
+#   in the physics loss. Without it that check silently reports "connected", which
+#   is a DIFFERENT loss from the one the released model was trained with -- install
+#   it if you retrain.
+opencv-python-headless>=4.10
+# wandb: only imported when train_picfm_dit.py is given --wandb.
+# wandb>=0.17

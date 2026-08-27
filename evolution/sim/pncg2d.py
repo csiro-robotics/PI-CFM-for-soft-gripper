@@ -38,8 +38,13 @@ from pathlib import Path
 import numpy as np
 import warp as wp
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT)); sys.path.insert(0, str(ROOT / "warp_2d_fem"))
+# this package is a flat module set: make sibling modules importable whether the
+# solver is used through evolution/evaluate.py or on its own.
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parent
+for _p in (str(HERE), str(ROOT)):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 from pncg2d_math import (vec6, ds_from_nodes, dF_from_dir, dF_from_vec6,      # noqa: E402
                          nh_dPsidF, nh_d2PsidF2_dir, nh_pHp_elem, cross2,
                          barrier_b, barrier_bp, barrier_bpp)

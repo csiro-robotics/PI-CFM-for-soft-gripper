@@ -1,5 +1,5 @@
 """
-Diffusion Transformer (DiT) for Flow Matching (CFM-sim self-contained copy).
+Diffusion Transformer (DiT) for Flow Matching.
 
 Based on Lumina-T2I (Flag-DiT / Alpha-VLLM, 2024), adapted for PICFM
 topology optimization with SpatialStyleEncoder (v2).

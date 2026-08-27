@@ -43,6 +43,9 @@ class Mesh:
     excl_offset: np.ndarray      # (n_envs+1,) offsets into excl_flat
     excluded_pairs_per_env: list # list of (n_b_e, n_b_e) bool
     grid_to_live_node_per_env: list
+    # connected components of each env's socketed mask, filled in by
+    # finger.build_multi_env. >1 means the design decoded in pieces.
+    n_components: np.ndarray | None = None
     tri_quad: np.ndarray = None  # (sum_n_tri,) per-env-LOCAL grid-quad idx of each surviving tri (decode: ix=q//ny, iy=q%ny)
 
     @property

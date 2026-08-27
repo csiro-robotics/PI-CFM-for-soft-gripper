@@ -27,9 +27,13 @@ from pathlib import Path
 import numpy as np
 import warp as wp
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT)); sys.path.insert(0, str(ROOT / "warp_2d_fem"))
-sys.path.insert(0, str(ROOT / "optimisation_methods"))
+# this package is a flat module set: make sibling modules importable whether the
+# solver is used through evolution/evaluate.py or on its own.
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parent
+for _p in (str(HERE), str(ROOT)):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 import pncg2d as K                                                      # noqa: E402
 import pncg2d_sdf as SDF                                                # noqa: E402  arbitrary-object SDF contact
 from mesh import build_mesh                                             # noqa: E402

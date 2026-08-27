@@ -65,7 +65,75 @@ any scalar can be overridden on the command line (`--lr`, `--total_steps`, …).
 
 ## 4. Evolution
 
-*(added in the next step)*
+Quality-diversity search over the generative model's own inputs. A genome is
+
+```
+genome = [ theta (5K) | z_token (512) ]                      D = 572 at K = 12
+
+theta     2K Voronoi site positions + 3K per-site class logits (topopt / graph /
+          finray). Rasterised to a hard, pure-class RGB image -> the CONDITION.
+z_token   one noise value per DiT token (32 x 16), upsampled to the pixel grid ->
+          the flow's starting x0. Not a condition: the search explores the
+          generator's conditioning and its noise jointly.
+```
+
+decoded by the trained PI-CFM into a 128 x 64 binary design, then evaluated by
+closing one soft finger on a rigid disc and lifting it.
+
+```bash
+cd evolution
+./run_evolution.sh smoke        # 2 tiny iterations — checks the whole pipeline
+./run_evolution.sh              # the full run  -> ../runs/me_<timestamp>/
+```
+
+**Archive.** 4-D CVT MAP-Elites, 2000 cells, LM-MA-ES emitters (64 x 32 = 2048
+designs per iteration). Descriptor axes:
+
+| axis | meaning |
+|---|---|
+| `strut_complexity` | fraction of material in thin struts (<= 2 px half-thickness) |
+| `branch_density`   | skeleton branch-points per unit skeleton length |
+| `hole_count`       | enclosed voids |
+| `material_fraction`| filled fraction of the design space |
+
+**Objective.** `1 + novelty + 0.4 * (0.2 * tanh(pull_off / f_ref) + 0.8 * wrap)`,
+zero for an invalid design. Novelty dominates on purpose: the run is meant to
+illuminate the space of morphologies, not to hill-climb one grasp.
+
+**Physics.** Implicit backward-Euler PNCG with IPC log-barrier contact,
+self-collision and friction — the same solver and operating point behind the
+paper's gallery:
+
+| | |
+|---|---|
+| material | E = 1.9 MPa, mu = 0.9514 (contact/damping system-identified at dt = 2 ms) |
+| step | dt = 2 ms |
+| close | 1.10 s, 10 mm cosine-eased stroke |
+| pull | 3.03 s over 30 mm |
+| object | rigid disc, r = 14 mm |
+| opening | 52 mm two-finger equivalent (one finger sees 26 mm to the disc centre) |
+
+Everything is pinned in [`evolution/evaluate.py`](evolution/evaluate.py); a genome
+decodes to the same design on any GPU, so a run is reproducible from its seeds.
+
+**No repair step.** The research pipeline stitched broken ribs with an NV-loop
+repair before simulating. This release does not: a design is exactly what the
+model produced, thresholded at 0.5. Consequences worth knowing:
+
+* designs routinely decode into several disconnected pieces;
+* only the piece bolted to the socket is simulated (removal, never addition —
+  `--keep-islands` simulates the rest too);
+* designs with no real material under the socket blocks, or with no continuous
+  load path down to the contact region, are scored invalid rather than repaired.
+
+```
+evolution/
+  genome -> design      generate/   PI-CFM DiT, Voronoi rasteriser, per-token CFG
+  design -> metrics     sim/        implicit PNCG-IPC solver, socket + mesh builder
+  descriptors.py        the four archive axes
+  evaluate.py           the pinned operating point + composite score
+  map_elites.py         CVT archive, LM-MA-ES emitters, the ask/tell loop
+```
 
 ---
 

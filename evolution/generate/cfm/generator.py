@@ -10,8 +10,8 @@ Usage:
     from generator import DesignGenerator
 
     gen = DesignGenerator(
-        checkpoint_path="CFM-sim/checkpoint_0300000.pt",
-        bc_npz_path="CFM-sim/data_00000.npz",
+        checkpoint_path="checkpoints/picfm_dit.pt",
+        bc_npz_path="assets/bc_data_00000.npz",
     )
 
     # Generate samples (returns list of result dicts)
@@ -33,7 +33,7 @@ from typing import Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 import torch
 
-# Ensure CFM-sim package is importable
+# Ensure this package's own modules (models/, sampling) are importable
 _CFM_DIR = Path(__file__).resolve().parent
 if str(_CFM_DIR) not in sys.path:
     sys.path.insert(0, str(_CFM_DIR))
@@ -643,19 +643,8 @@ def _save_stl(
 
     filepath = Path(filepath)
 
-    # Try project utility first
-    try:
-        _cfm_root = Path(__file__).resolve().parent.parent
-        sys.path.insert(0, str(_cfm_root))
-        from utils.mesh_utils import voxel_3D_binary_array_to_stl
-        voxel_3D_binary_array_to_stl(
-            voxel_3d.astype(bool), voxel_size, str(filepath),
-        )
-        return
-    except Exception:
-        pass
-
-    # Fallback: trimesh
+    # trimesh is an OPTIONAL extra: nothing in the training or evolution pipeline
+    # calls this, it is here so a generated design can be exported for printing.
     try:
         import trimesh
         vg = trimesh.voxel.VoxelGrid(

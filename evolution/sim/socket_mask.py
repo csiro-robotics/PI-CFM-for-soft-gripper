@@ -199,7 +199,7 @@ def add_socket_to_mask(
     finger_overlap_rows: int = 2,
     enforce_connectivity: bool = True,   # DEPRECATED: no-op, kept for call compatibility
 ) -> tuple[np.ndarray, dict]:
-    """Append a socket (necks + blocks) on top of a repaired finger mask.
+    """Append a socket (necks + blocks) on top of a finger mask.
 
     Connection strategy:
       1. The socket strip itself includes narrow ``neck`` rows below the
@@ -207,10 +207,10 @@ def add_socket_to_mask(
       2. The top ``finger_overlap_rows`` rows of the finger, restricted to
          the neck column ranges, are forced to material so the necks land
          on solid pixels (the finger's top boundary often has voids in
-         those columns after CFM + repair).
-      3. After concatenation, an optional cluster-repair pass bridges any
-         remaining disconnected components and seals pixel-thin gaps —
-         this is the safety net for unusual CFM outputs.
+         those columns).
+      3. Nothing else. The original pipeline ran a cluster-repair pass here that
+         bridged disconnected components; this release does not repair, so the
+         combined mask is reported as-is (see ``n_components_*`` in ``info``).
 
     Parameters
     ----------
