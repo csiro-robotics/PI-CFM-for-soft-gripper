@@ -117,26 +117,6 @@ def composite_score(m, cfg, w_force=W_FORCE, w_wrap=W_WRAP, f_ref=None):
     return float(s) if math.isfinite(s) else 0.0
 
 
-def effective_mask(mask, cfg):
-    """The part of a design that the solver actually sees, as an (H, W) finger mask.
-
-    Socketing is not the identity: it forces material into the top `finger_overlap_
-    rows` under the socket blocks so the mount lands on solid pixels, and -- when
-    cfg.drop_islands is on -- deletes every piece not connected to the socket. Both
-    change the geometry that is meshed.
-
-    Descriptors and novelty features are computed on THIS, not on the raw mask, so
-    two genomes whose attached geometry is identical but whose floating debris
-    differs land in the same archive cell instead of being told apart by material
-    that is not simulated."""
-    from finger import _socketed                                    # noqa: E402
-    mask = np.asarray(mask).astype(np.uint8)
-    if not mask.any():
-        return mask
-    mxy, _, _, _ = _socketed(mask, cfg, *mask.shape)
-    return mxy.T[:mask.shape[0]].astype(np.uint8)      # xy -> row-major, finger rows only
-
-
 def evaluate_masks(masks, cfg=None, device="cuda", dt=DT, close_t=CLOSE_T,
                    pull_t=PULL_T, iter_max=ITER_MAX, w_force=W_FORCE, w_wrap=W_WRAP,
                    verbose=False):
@@ -175,7 +155,6 @@ def evaluate_masks(masks, cfg=None, device="cuda", dt=DT, close_t=CLOSE_T,
     for j, i in enumerate(live):
         m = dict(mets[j])
         m.update(descriptors(masks[i]))
-        m["effective_mask"] = masks[i]
         m["score"] = composite_score(m, cfg, w_force, w_wrap)
         m["force_term"] = w_force * math.tanh(max(m["pull_off"], 0.0) / cfg.f_ref) \
             if m["valid"] and math.isfinite(m["pull_off"]) else 0.0
@@ -187,8 +166,7 @@ def evaluate_masks(masks, cfg=None, device="cuda", dt=DT, close_t=CLOSE_T,
 def _dead(mask):
     """Metric dict for an empty design, which has no mesh to simulate."""
     d = dict(valid=False, pull_off=0.0, arc=0.0, jmin=float("nan"), jmax=float("nan"),
-             ncon=0, mean_disp=0.0, score=0.0, force_term=0.0, wrap_term=0.0,
-             effective_mask=mask)
+             ncon=0, mean_disp=0.0, score=0.0, force_term=0.0, wrap_term=0.0)
     d.update(descriptors(mask))
     d["mat"] = d["material_fraction"]
     return d

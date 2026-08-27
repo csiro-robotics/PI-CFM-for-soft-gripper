@@ -71,6 +71,8 @@ def build_parser():
     p.add_argument("--batch-size", type=int, default=32,
                    help="per emitter; population per iteration = n_emitters * this")
     p.add_argument("--cells", type=int, default=2000, help="CVT cells over the 4-D space")
+    p.add_argument("--seed", type=int, default=0,
+                   help="base seed for the emitters; emitter i gets --seed + i")
     p.add_argument("--cvt-seed", type=int, default=0,
                    help="seed for the CVT tessellation (k-means). Same seed + same "
                         "--cells => identical cells, so coverage is comparable across runs")
@@ -179,8 +181,11 @@ def main(argv=None):
     x0s = [np.zeros(D) for _ in range(args.n_emitters)]
     if resume is not None:
         x0s = _warm_start(archive, resume, D, args)
+    # each emitter gets its own derived seed, so a rerun with the same --seed,
+    # --x0-seed and --cvt-seed reproduces the run exactly
     emitters = [EvolutionStrategyEmitter(archive, x0=x0s[i], sigma0=args.sigma0,
-                                         es=args.es, batch_size=args.batch_size)
+                                         es=args.es, batch_size=args.batch_size,
+                                         seed=args.seed + i)
                 for i in range(args.n_emitters)]
     scheduler = Scheduler(archive, emitters)
     narch = NoveltyArchive(k=args.novelty_k, gh=GH, gw=GW)
@@ -188,19 +193,18 @@ def main(argv=None):
     history, t0 = [], time.time()
     for it in range(args.iterations):
         genomes = scheduler.ask()
-        mets = []
+        masks, mets = [], []
         for s in range(0, len(genomes), args.chunk):
             mk = gnm.genomes_to_masks(gen, genomes[s:s + args.chunk], K, H, W, args.x0_seed,
                                       noise_dim=noise_dim, noise_scale=args.noise_scale,
                                       ode_steps=args.ode_steps)
+            masks += mk
             mets += evaluate.evaluate_masks(mk, cfg, device=args.device,
                                             w_force=args.w_force, w_wrap=args.w_wrap)
 
         valid = np.array([m["valid"] for m in mets], bool)
         grasp = np.array([m["score"] for m in mets], np.float32)
-        # novelty is scored on the EFFECTIVE mask -- what the solver saw -- so a design
-        # cannot buy novelty with floating debris that never touches the object
-        feats = narch._feat([m["effective_mask"] for m in mets]).astype(np.float32)
+        feats = narch._feat(masks).astype(np.float32)
         nov = narch.score_feats(feats).astype(np.float32)
         objective = np.where(valid, 1.0 + args.novelty_weight * nov + args.w_grasp * grasp, 0.0)
         measures = np.stack([[m[a] for a in AXES] for m in mets]).astype(np.float32)

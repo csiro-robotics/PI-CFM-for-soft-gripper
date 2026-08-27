@@ -19,8 +19,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 import numpy as np
 
-from scipy.ndimage import binary_erosion, label as ndi_label
-
 from socket_mask import socket_height_rows, add_socket_to_mask
 from mesh import build_mesh
 
@@ -80,51 +78,6 @@ def _socket_bc_nodes(me, masks_xy, B, block_cols, H, block_rows, n_corner=5):
         pinned += sorted(pin); driven += sorted(drv)
     return pinned, driven
 
-
-def socket_block_cols(cfg, W):
-    """Column spans of the socket blocks for a design W pixels wide."""
-    from socket_mask import socket_block_columns
-    G = SOCKET_GEOMETRY
-    return socket_block_columns(W, G["gap_frac"], G["n_blocks"])
-
-
-def anchor_valid(mask, block_cols, anchor_rows: int = 6, min_fill: float = 0.20) -> bool:
-    """Reject ANCHOR-STARVED fingers (no material where the socket clamps).
-
-    add_socket_to_mask() adds the fixed/driven socket on TOP of the finger and
-    forces material in the top `finger_overlap_rows` under the necks so the socket
-    lands on solid pixels. A finger with almost nothing under the blocks therefore
-    still meshes -- it hangs off that forced tongue by a hairline -- and passes the
-    inversion/contact guards while having no real material at the fixed nodes.
-    Two cheap mask-only checks close that hole:
-
-      (1) the anchor band (top `anchor_rows` finger rows, under the block
-          footprints) must carry >= `min_fill` material in the ORIGINAL finger
-          (not the socket-forced overlap rows);
-      (2) after a 1px erosion (which snaps hairline bridges), the finger's
-          largest connected component must span anchor band -> contact region
-          (bottom half), i.e. a continuous load path exists.
-
-    mask: (H, W) finger, row 0 = bottom (socket side = high rows).  block_cols:
-    list of (c_lo, c_hi) socket-block column spans (from add_socket_to_mask info).
-    """
-    m = np.asarray(mask) > 0
-    H, W = m.shape
-    ar = max(1, min(int(anchor_rows), H))
-    cols = np.zeros(W, dtype=bool)
-    for c_lo, c_hi in block_cols:
-        cols[int(c_lo):int(c_hi) + 1] = True
-    if not cols.any():
-        cols[:] = True
-    if float(m[H - ar:H, cols].mean()) < min_fill:           # (1) loaded anchor band
-        return False
-    er = binary_erosion(m, iterations=1)                     # (2) continuous load path
-    lbl, n = ndi_label(er)
-    if n == 0:
-        return False
-    sizes = np.bincount(lbl.ravel()); sizes[0] = 0
-    comp = lbl == int(sizes.argmax())
-    return bool(comp[H - ar:H, cols].any() and comp[:H // 2, :].any())
 
 def keep_socket_component(comb):
     """Drop material not connected to the socket. REMOVAL ONLY -- never adds a pixel.

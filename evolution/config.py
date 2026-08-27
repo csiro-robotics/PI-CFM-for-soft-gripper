@@ -58,17 +58,22 @@ class SimCfg:
     object_x = 0.060
     object_y = 0.080
     object_r = 0.014
-    # validity / explosion guards
+    # Validity guards. The IMPLICIT path reads only the two J bounds:
+    #   valid = finite pull_off/arc, ncon > 0, arc > 0, buckle_J_min <= J <= J_max_thr
     buckle_J_min = 0.3          # reject if any element inverts below this
     J_max_thr = 5.0             # reject if any element stretches above this
-    arc_explode_factor = 1.25   # reject if contact arc > circumference * this
-    force_cap = 3.90147e4       # reject pull-off above this (REF 1.0e4 * r)
-    # anchor guard: reject fingers that carry no material where the socket clamps
-    # (add_socket_to_mask's repair otherwise bridges a floating finger with a
-    # hairline thread -> "valid" sim with nothing at the fixed nodes).
-    anchor_rows = 6             # top finger rows (socket side) that must be loaded
-    anchor_min_fill = 0.20      # min material fraction in that band, under the blocks
-    anchor_guard = True         # set False to disable (legacy behaviour)
+    # The next two guarded the EXPLICIT solver, which this release does not ship.
+    # Kept so a SimCfg still round-trips with the research one, but NOT read here.
+    arc_explode_factor = 1.25   # (unused) reject if contact arc > circumference * this
+    force_cap = 3.90147e4       # (unused as a guard; still rescaled with E) REF 1.0e4 * r
+    # Anchor guard: an EXPLICIT-path screen (warp_grasp.py in the research repo) that
+    # rejected fingers carrying no material where the socket clamps. The implicit path
+    # never ran it, and neither does this release -- validity is the solver's own rule
+    # above, so a design that does not reach the object is simply invalid. Kept as
+    # inert fields for SimCfg compatibility.
+    anchor_rows = 6             # (unused) top finger rows that must be loaded
+    anchor_min_fill = 0.20      # (unused) min material fraction in that band
+    anchor_guard = True         # (unused)
     # No repair step in this release, so a design can decode into several pieces.
     # False (default) -> simulate the mask EXACTLY as the model produced it, floating
     # pieces included: no repair means no modification of any kind.
@@ -79,8 +84,9 @@ class SimCfg:
     n_steps = 20000
     pull_n_steps = 20000
     pull_distance = 30.0e-3
-    save_every = 200
-    broadphase_every = 10
+    save_every = 200            # (unused) explicit-path trajectory sampling interval
+    broadphase_every = 10       # (unused) the implicit solver rebuilds its own Warp
+                                # HashGrid broadphase and never reads this
     f_ref = 390.147
 REF_YOUNG = 5.26e5
 REF_NU = 0.40

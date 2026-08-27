@@ -26,11 +26,18 @@ float64 for the accumulators is not paranoia: order-dependent float32 summation
 over ~10k nodes makes two envs holding the SAME design return different numbers,
 which is indistinguishable from a coupling bug during the isolation test.
 
-SCOPE (v1): disc contact + inversion/CCD step caps. Self-collision and friction
-are staged next — self-collision because contact.py's penalty is exactly
-conservative and ports with zero physics change, friction because in 2D its
-Hessian vanishes in the sliding regime (all our contacts slide: 0.3-0.8 m/s vs
-epsv = 1e-4), so it is a gradient-only term.
+SCOPE: disc contact + inversion/CCD step caps + self-collision + friction. All
+four are implemented and ON by default in this release (evaluate.py passes
+self_collision=True, friction=True).
+
+Friction was ORIGINALLY written as a gradient-only term, on the reasoning that in
+2D its Hessian vanishes in the sliding regime. That was wrong in practice: all of
+its curvature sits in a kink of half-width a = epsv*dt, and init_step sets xn = x,
+so every free node starts every timestep sitting on the kink. Omitting the
+curvature made the line search inconsistent with the gradient and produced force
+chatter. grad_friction_disc_kernel now also writes diagH, and
+pHp_friction_disc_kernel makes alpha = -gTp/pHp self-consistent. Purely numerical:
+the converged solution is unchanged.
 """
 from __future__ import annotations
 import sys
