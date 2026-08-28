@@ -1,11 +1,11 @@
-# PI-CFM for Soft Grippers
+# Beyond Representations: Flow-based Generative Design of Soft Grippers
 
 Physics-Informed Conditional Flow Matching for the generative design of soft
 robotic gripper fingers, with quality-diversity search over the generative
 latent and grasp evaluation by a differentiable-contact FEM solver.
 
-The repository is **self-contained**: training, generation, evolution and
-simulation all live here, with no external project dependencies.
+The repository contains: training, generation, evolution and
+simulation, with no external project dependencies.
 
 ```
 training/     stage 1 condition encoder -> stage 2 PI-CFM DiT
@@ -114,28 +114,6 @@ paper's gallery:
 | opening | 52 mm two-finger equivalent (one finger sees 26 mm to the disc centre) |
 
 Everything is pinned in [`evolution/evaluate.py`](evolution/evaluate.py).
-
-**What is and is not reproducible.** A genome decodes to the *same design* on any
-GPU: `genome -> mask` is a pure function of `(genome, x0_seed)`, verified bit-exact
-(re-decoding an archive reproduces every descriptor to 0.00e+00). The *score* is
-not bit-exact. The solver accumulates per-node `grad`/`diagH` and the disc reaction
-`Fdisc` with float32 atomics, whose ordering varies between GPU launches; the
-per-env reductions are float64, so envs stay isolated, but the per-node sums are
-not. Re-simulating the same design gives a spread of about 0.5% in the composite
-score (measured: 6.8e-4 absolute on a score of 0.142, run to run). Batch
-composition is *not* the cause -- rerunning an identical batch varies by as much as
-changing it. This is far below the differences the search resolves, but it does
-mean a re-simulated archive will not match its stored scores exactly.
-
-**No repair step.** The research pipeline stitched broken ribs with an NV-loop
-repair before simulating. This release does not: a design is exactly what the
-model produced, thresholded at 0.5. Consequences worth knowing:
-
-* designs routinely decode into several disconnected pieces;
-* only the piece bolted to the socket is simulated (removal, never addition —
-  `--keep-islands` simulates the rest too);
-* designs with no real material under the socket blocks, or with no continuous
-  load path down to the contact region, are scored invalid rather than repaired.
 
 ```
 evolution/
