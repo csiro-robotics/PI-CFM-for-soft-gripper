@@ -4,6 +4,14 @@ Physics-Informed Conditional Flow Matching for the generative design of soft
 robotic gripper fingers, with quality-diversity search over the generative
 latent and grasp evaluation by a differentiable-contact FEM solver.
 
+<p align="center">
+  <img src="Figure/overview.gif"
+       alt="Pipeline overview: the 128x64 design space with its boundary conditions; conditional flow matching composing fin-ray, graph-optimised and topology-optimised features into a single design; the resulting two-finger gripper evaluated by 2D FEA von Mises stress while grasping a disc; and the 3D-printed gripper performing the same grasp in hardware.">
+  <br>
+  <em>Design space and boundary conditions &rarr; compositional flow matching over fin-ray /
+  graph-optimised / topology-optimised features &rarr; FEA grasp evaluation &rarr; hardware validation.</em>
+</p>
+
 The repository contains: training, generation, evolution and
 simulation, with no external project dependencies.
 
